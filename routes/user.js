@@ -10,7 +10,7 @@ import {
 import {
   cloudinaryStorage,
   deleteImageFromCloudinary,
-} from "../config/cloudinaryConfig.js";
+} from "../config/CloudinaryConfig.js";
 import multer from "multer";
 import { extractPublicId } from "../helpers/index.js";
 
