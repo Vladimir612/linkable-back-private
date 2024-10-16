@@ -7,7 +7,7 @@ const connectToDatabase = async () => {
 
   console.log(user, password, databaseName);
 
-  const mongoUrl = `mongodb+srv://${user}:${password}@cluster0.1wsr6.mongodb.net/${databaseName}?retryWrites=false&w=majority&appName=Cluster0`;
+  const mongoUrl = `mongodb+srv://${user}:${password}@cluster0.1wsr6.mongodb.net/${databaseName}?retryWrites=true&w=majority&appName=Cluster0`;
 
   try {
     await connect(mongoUrl);
