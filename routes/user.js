@@ -27,29 +27,17 @@ router.post(
   uploadProfileImg.single("profileImage"),
   async (req, res) => {
     try {
-      const {
-        username,
-        name,
-        surname,
-        password,
-        age,
-        dissabilityType,
-        gender,
-      } = req.body;
+      const { email, fullname, password } = req.body;
 
-      const existingUser = await User.findOne({ username });
+      const existingUser = await User.findOne({ email });
       if (existingUser) return res.status(404).send("User already exists");
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const newUser = new User({
-        username,
+        email,
         password: hashedPassword,
-        name,
-        surname,
-        age,
-        dissabilityType,
-        gender,
+        fullname,
         role: "User",
       });
 
@@ -60,7 +48,7 @@ router.post(
       await newUser.save();
 
       const token = jwt.sign(
-        { id: newUser._id, username: newUser.username },
+        { id: newUser._id, email: newUser.email },
         process.env.JWT_SECRET,
         {
           expiresIn: "1h",
@@ -84,16 +72,16 @@ router.post(
 
 router.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ email });
     if (!user) return res.status(404).send("User not found");
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(401).send("Invalid password");
 
     const token = jwt.sign(
-      { id: user._id, username: user.username },
+      { id: user._id, email: user.email },
       process.env.JWT_SECRET,
       {
         expiresIn: "1h",
@@ -149,10 +137,9 @@ router.patch(
       }
 
       const {
-        username,
+        email,
         password,
-        name,
-        surname,
+        fullname,
         age,
         dissabilityType,
         gender,
@@ -160,8 +147,8 @@ router.patch(
         role,
       } = req.body;
 
-      if (username && username !== user.username) {
-        const existingUser = await User.findOne({ username });
+      if (email && email !== user.email) {
+        const existingUser = await User.findOne({ email });
         if (existingUser) {
           if (req.file && req.file.path) {
             cloudinaryImageId = extractPublicId(req.file.path);
@@ -169,9 +156,9 @@ router.patch(
               `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${cloudinaryImageId}`
             );
           }
-          return res.status(400).json({ message: "Username already exists" });
+          return res.status(400).json({ message: "email already exists" });
         }
-        user.username = username;
+        user.email = email;
       }
 
       if (experiences && experiences.length > 0) {
@@ -183,8 +170,7 @@ router.patch(
         const hashedPassword = await bcrypt.hash(password, 10);
         user.password = hashedPassword;
       }
-      if (name) user.name = name;
-      if (surname) user.surname = surname;
+      if (fullname) user.fullname = fullname;
       if (age) user.age = age;
       if (dissabilityType) user.dissabilityType = dissabilityType;
       if (gender) user.gender = gender;

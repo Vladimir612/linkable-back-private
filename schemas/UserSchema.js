@@ -4,7 +4,6 @@ const availabilitySchema = new mongoose.Schema({
   availabilityStatus: {
     type: String,
     enum: ["Up for a call", "Available for messages", "Unavailable"],
-    required: true,
   },
   availabilitySchedule: {
     weekdays: {
@@ -13,21 +12,17 @@ const availabilitySchema = new mongoose.Schema({
           day: {
             type: String,
             enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-            required: true,
           },
           time: {
             start: {
               type: String, // e.g., "09:00"
-              required: true,
             },
             end: {
               type: String, // e.g., "17:00"
-              required: true,
             },
           },
         },
       ],
-      required: true,
     },
     weekend: {
       type: [
@@ -35,27 +30,23 @@ const availabilitySchema = new mongoose.Schema({
           day: {
             type: String,
             enum: ["Saturday", "Sunday"],
-            required: true,
           },
           time: {
             start: {
               type: String, // e.g., "10:00"
-              required: true,
             },
             end: {
               type: String, // e.g., "14:00"
-              required: true,
             },
           },
         },
       ],
-      required: true,
     },
   },
 });
 
 const userSchema = new mongoose.Schema({
-  username: {
+  email: {
     type: String,
     required: true,
     unique: true,
@@ -64,17 +55,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  name: {
-    type: String,
-    required: true,
-  },
-  surname: {
+  fullname: {
     type: String,
     required: true,
   },
   age: {
     type: Number,
-    required: true,
   },
   role: {
     type: String,
@@ -83,7 +69,6 @@ const userSchema = new mongoose.Schema({
   },
   profileImage: {
     type: String,
-    required: true,
   },
   dissabilityType: {
     type: String,
@@ -97,7 +82,6 @@ const userSchema = new mongoose.Schema({
       "blind",
       "mute",
     ],
-    required: true,
   },
   gender: {
     type: String,
@@ -108,11 +92,9 @@ const userSchema = new mongoose.Schema({
       question: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Question",
-        required: true,
       },
       answer: {
         type: String,
-        required: true,
       },
     },
   ],
@@ -143,7 +125,6 @@ const userSchema = new mongoose.Schema({
   availability: [
     {
       type: availabilitySchema,
-      required: true,
     },
   ],
 });
