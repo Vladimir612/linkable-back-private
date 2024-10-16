@@ -1,17 +1,18 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import connectToDatabase from "./config/DatabaseConfig.js";
 import apiRoutes from "./routes/index.js";
-import http from "http";
+import { dbConnectMiddleware } from "./middlewares/dbConnect.js";
+
 dotenv.config();
 
 const app = express();
 
-const port = process.env.PORT || 5000;
 app.use(express.json());
-
 app.use(cors());
+
+// Ensure database is connected before handling any request
+app.use(dbConnectMiddleware);
 
 app.get("/", (_, res) => {
   res.send("Hello, World!");
@@ -19,14 +20,5 @@ app.get("/", (_, res) => {
 
 app.use("/api", apiRoutes);
 
-const server = http.createServer(app);
-
-server.listen(port, async () => {
-  try {
-    await connectToDatabase();
-    console.log(`Server is listening on port: ${port}`);
-  } catch (error) {
-    console.error("Failed to connect to the database", error);
-    process.exit(1);
-  }
-});
+// Export the app for Vercel to handle
+export default app;
