@@ -97,7 +97,7 @@ router.post("/login", async (req, res) => {
 router.post(
   "/onboarding",
   // authorize(["User"]),
-  uploadProfileImg.single("profileImage"),
+  // uploadProfileImg.single("profileImage"),
   async (req, res) => {
     try {
       // Get user ID from the token
@@ -130,10 +130,10 @@ router.post(
       if (req.file) {
         // Delete old image if it exists
         if (user.profileImage) {
-          const oldImagePublicId = extractPublicId(user.profileImage);
-          await deleteImageFromCloudinary(
-            `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${oldImagePublicId}`
-          );
+          // const oldImagePublicId = extractPublicId(user.profileImage);
+          // await deleteImageFromCloudinary(
+          //   `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${oldImagePublicId}`
+          // );
         }
         user.profileImage = req.file.path;
       }
