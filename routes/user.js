@@ -232,7 +232,7 @@ router.delete("/:id", authorize(["User", "Admin"]), async (req, res) => {
 
 router.post(
   "/onboarding",
-  authorize(["User"]),
+  // authorize(["User"]),
   uploadProfileImg.single("profileImage"),
   async (req, res) => {
     try {
