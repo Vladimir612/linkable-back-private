@@ -94,6 +94,61 @@ router.post("/login", async (req, res) => {
   }
 });
 
+router.post(
+  "/onboarding",
+  // authorize(["User"]),
+  uploadProfileImg.single("profileImage"),
+  async (req, res) => {
+    try {
+      // Get user ID from the token
+      const userId = req.user.id;
+
+      // Find the user
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).send("User not found");
+
+      // Extract data from the request body
+      const {
+        gender,
+        age,
+        dissabilityType,
+        experiences,
+        challenges,
+        willingToHelp,
+      } = req.body;
+
+      // Update user fields
+      if (gender) user.gender = gender;
+      if (age) user.age = age;
+      if (dissabilityType) user.dissabilityType = dissabilityType;
+      if (experiences) user.experiences = experiences; // Ensure this matches the schema
+      if (challenges) user.challenges = challenges;
+      if (willingToHelp !== undefined)
+        user.willingToHelp = willingToHelp === "true";
+
+      // Handle profileImage
+      if (req.file) {
+        // Delete old image if it exists
+        if (user.profileImage) {
+          const oldImagePublicId = extractPublicId(user.profileImage);
+          await deleteImageFromCloudinary(
+            `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${oldImagePublicId}`
+          );
+        }
+        user.profileImage = req.file.path;
+      }
+
+      // Save the updated user
+      await user.save();
+
+      res.json({ message: "Onboarding data saved successfully" });
+    } catch (error) {
+      console.error("Error in /user/onboarding:", error);
+      res.status(500).json({ message: "Error saving onboarding data", error });
+    }
+  }
+);
+
 router.get("/", async (req, res) => {
   try {
     const users = await User.find();
@@ -229,60 +284,5 @@ router.delete("/:id", authorize(["User", "Admin"]), async (req, res) => {
     res.status(500).json({ message: "Error deleting user", error });
   }
 });
-
-router.post(
-  "/onboarding",
-  // authorize(["User"]),
-  uploadProfileImg.single("profileImage"),
-  async (req, res) => {
-    try {
-      // Get user ID from the token
-      const userId = req.user.id;
-
-      // Find the user
-      const user = await User.findById(userId);
-      if (!user) return res.status(404).send("User not found");
-
-      // Extract data from the request body
-      const {
-        gender,
-        age,
-        dissabilityType,
-        experiences,
-        challenges,
-        willingToHelp,
-      } = req.body;
-
-      // Update user fields
-      if (gender) user.gender = gender;
-      if (age) user.age = age;
-      if (dissabilityType) user.dissabilityType = dissabilityType;
-      if (experiences) user.experiences = experiences; // Ensure this matches the schema
-      if (challenges) user.challenges = challenges;
-      if (willingToHelp !== undefined)
-        user.willingToHelp = willingToHelp === "true";
-
-      // Handle profileImage
-      if (req.file) {
-        // Delete old image if it exists
-        if (user.profileImage) {
-          const oldImagePublicId = extractPublicId(user.profileImage);
-          await deleteImageFromCloudinary(
-            `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${oldImagePublicId}`
-          );
-        }
-        user.profileImage = req.file.path;
-      }
-
-      // Save the updated user
-      await user.save();
-
-      res.json({ message: "Onboarding data saved successfully" });
-    } catch (error) {
-      console.error("Error in /user/onboarding:", error);
-      res.status(500).json({ message: "Error saving onboarding data", error });
-    }
-  }
-);
 
 export default router;
