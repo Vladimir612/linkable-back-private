@@ -196,7 +196,7 @@ router.patch(
       if (req.file && req.file.path) {
         cloudinaryImageId = extractPublicId(req.file.path);
         await deleteImageFromCloudinary(
-          `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${imgPublicId}`
+          `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${cloudinaryImageId}`
         );
       }
       res.status(500).json({ message: "Error updating user", error });
