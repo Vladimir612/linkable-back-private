@@ -127,6 +127,14 @@ const userSchema = new mongoose.Schema({
       type: availabilitySchema,
     },
   ],
+  willingToHelp: {
+    type: Boolean,
+  },
+  challenges: [
+    {
+      type: String,
+    },
+  ],
 });
 
 const User = mongoose.model("User", userSchema);
