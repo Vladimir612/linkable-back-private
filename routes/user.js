@@ -96,12 +96,15 @@ router.post("/login", async (req, res) => {
 
 router.post(
   "/onboarding",
-  // authorize(["User"]),
+  authorize(["User"]),
   // uploadProfileImg.single("profileImage"),
   async (req, res) => {
     try {
       // Get user ID from the token
-      const userId = req.user.id;
+      const userId = req.user ? req.user.id : null;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
       // Find the user
       const user = await User.findById(userId);
