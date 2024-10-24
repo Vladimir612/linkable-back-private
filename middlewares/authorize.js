@@ -1,5 +1,8 @@
 import jwt from "jsonwebtoken";
 import User from "../schemas/UserSchema.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const authorize = (allowedRoles) => {
   return async (req, res, next) => {
