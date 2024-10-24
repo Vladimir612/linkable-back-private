@@ -16,7 +16,7 @@ app.use(cors());
 app.use(dbConnectMiddleware);
 
 app.get("/", (_, res) => {
-  res.send("Hello, World!");
+  res.send("Hello, Lazar!");
 });
 
 app.use("/api", apiRoutes);
