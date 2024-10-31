@@ -22,6 +22,11 @@ const chatgptChatSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  flag: {
+    type: String,
+    enum: ["USERS", "POSTS", "AI"],
+    required: true,
+  },
   messages: [messageSchema],
   lastUpdated: {
     type: Date,

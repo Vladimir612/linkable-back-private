@@ -12,6 +12,7 @@ import multer from "multer";
 import { extractPublicId } from "../helpers/index.js";
 import OpenAI from "openai";
 import Comment from "../schemas/CommentSchema.js";
+import ChatGPTChat from "../schemas/ChatGptSchema.js";
 
 dotenv.config();
 
@@ -258,6 +259,25 @@ router.get(
       res.json(comments); // Vraćamo sve korisnikove komentare
     } catch (error) {
       res.status(500).json({ message: "Error fetching user comments", error });
+    }
+  }
+);
+
+router.get(
+  "/:userId/chatsWithAI",
+  authorize(["User", "Admin"]),
+  async (req, res) => {
+    try {
+      const { flag } = req.query;
+
+      const chats = await ChatGPTChat.find({
+        user: req.params.userId,
+        flag: flag,
+      }).select("flag messages lastUpdated");
+
+      res.json(chats);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching user chats", error });
     }
   }
 );

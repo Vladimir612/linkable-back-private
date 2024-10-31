@@ -3,6 +3,7 @@ import User from "../schemas/UserSchema.js";
 import OpenAI from "openai";
 import dotenv from "dotenv";
 import { authorize } from "../middlewares/authorize.js";
+import ChatGPTChat from "../schemas/ChatGptSchema.js";
 const router = express.Router();
 
 dotenv.config();
@@ -188,6 +189,7 @@ router.post("/chat", authorize("User", "Admin"), async (req, res) => {
   try {
     const { userInput, flag } = req.body;
     const userDisabilityType = req.user.dissabilityType;
+    const userId = req.user._id;
 
     let response;
 
@@ -195,7 +197,7 @@ router.post("/chat", authorize("User", "Admin"), async (req, res) => {
       response = await getUsersWithMatchingExperience(
         userInput,
         userDisabilityType,
-        req.user._id
+        userId
       );
     } else if (flag === "POSTS") {
       response = await getPostsWithMatchingTags(userInput);
@@ -205,6 +207,27 @@ router.post("/chat", authorize("User", "Admin"), async (req, res) => {
       return res.status(400).json({ error: "Invalid flag value provided." });
     }
 
+    const chat = await ChatGPTChat.findOneAndUpdate(
+      { user: userId, flag },
+      {
+        $push: { messages: { sender: "user", content: userInput } },
+        lastUpdated: Date.now(),
+      },
+      { new: true, upsert: true }
+    );
+
+    // Dodaj odgovor ChatGPT-a kao novu poruku u razgovoru
+    await ChatGPTChat.findByIdAndUpdate(chat._id, {
+      $push: {
+        messages: { sender: "chatgpt", content: JSON.stringify(response) },
+      },
+      lastUpdated: Date.now(),
+    });
+
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { chatGPTChats: chat._id },
+    });
+
     if (Array.isArray(response) && response.length === 0) {
       return res.status(200).json({ message: "No matching results found." });
     }
@@ -212,7 +235,9 @@ router.post("/chat", authorize("User", "Admin"), async (req, res) => {
     res.status(200).json(response);
   } catch (error) {
     console.error("Error in chat route:", error);
-    res.status(500).json({ error: "An error occurred while fetching users." });
+    res
+      .status(500)
+      .json({ error: "An error occurred while processing the chat request." });
   }
 });
 
