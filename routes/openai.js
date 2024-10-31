@@ -91,24 +91,125 @@ const getUsersWithMatchingExperience = async (
   }
 };
 
-router.post("/chat", authorize("User", "Admin"), async (req, res) => {
-  try {
-    const { userInput } = req.body;
-    const userDisabilityType = req.user.dissabilityType;
+import Post from "../schemas/PostSchema.js";
 
-    const matchingUsers = await getUsersWithMatchingExperience(
-      userInput,
-      userDisabilityType,
-      req.user._id
+const getPostsWithMatchingTags = async (userInput) => {
+  try {
+    const posts = await Post.find().select(
+      "_id title image chatGptTags content"
     );
 
-    if (matchingUsers.length === 0) {
-      return res
-        .status(200)
-        .json({ message: "No users with matching experience found." });
+    const postsData = posts
+      .map(
+        (post) =>
+          `ID: ${post._id}, Title: ${
+            post.title
+          }, ChatGptTags: ${post.chatGptTags.join(", ")}, Content: ${
+            post.content
+          }`
+      )
+      .join("\n");
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a content filter that finds posts relevant to a specific input. You will receive userInput and a list of posts with their _id, title, chatGptTags, and content.
+                    Sort and return only posts that closely match the input based on tags and content. If no posts match the input, it's okay to return nothing.
+                    Return the sorted list of post IDs in the format: id1, id2, id3. If no posts match, return an empty string.`,
+        },
+        {
+          role: "user",
+          content: `Here is the user's input: "${userInput}". Find matching posts from the following list:\n${postsData}`,
+        },
+      ],
+    });
+
+    const completionContent = completion.choices[0].message.content.trim();
+    if (completionContent === "") {
+      return [];
     }
 
-    res.status(200).json(matchingUsers);
+    const matchedPostIds = completionContent
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => /^[a-f\d]{24}$/i.test(id));
+
+    if (matchedPostIds.length === 0) {
+      return [];
+    }
+
+    const matchedPosts = matchedPostIds.map((id) =>
+      posts.find((post) => post._id.toString() === id)
+    );
+
+    if (matchedPosts.every((post) => !post)) {
+      return [];
+    }
+
+    const resultPosts = matchedPosts.map((post) => ({
+      _id: post._id,
+      title: post.title,
+      image: post.image,
+    }));
+
+    return resultPosts;
+  } catch (error) {
+    console.error("Error fetching or filtering posts:", error);
+    return [];
+  }
+};
+
+const getChatGptAnswer = async (userInput) => {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a legal advisor specializing in administrative support and legal guidance for individuals with disabilities. Provide advice on gathering documentation, navigating administrative processes, and understanding relevant laws. You will give your answers on serbian language.`,
+        },
+        {
+          role: "user",
+          content: `User's question: "${userInput}". Provide guidance to help them accomplish their task efficiently on serbian language.`,
+        },
+      ],
+    });
+
+    return completion.choices[0].message.content;
+  } catch (error) {
+    console.error("Error generating ChatGPT answer:", error);
+    return "An error occurred while fetching the answer.";
+  }
+};
+
+router.post("/chat", authorize("User", "Admin"), async (req, res) => {
+  try {
+    const { userInput, flag } = req.body;
+    const userDisabilityType = req.user.dissabilityType;
+
+    let response;
+
+    if (flag === "USERS") {
+      response = await getUsersWithMatchingExperience(
+        userInput,
+        userDisabilityType,
+        req.user._id
+      );
+    } else if (flag === "POSTS") {
+      response = await getPostsWithMatchingTags(userInput);
+    } else if (flag === "AI") {
+      response = await getChatGptAnswer(userInput);
+    } else {
+      return res.status(400).json({ error: "Invalid flag value provided." });
+    }
+
+    if (Array.isArray(response) && response.length === 0) {
+      return res.status(200).json({ message: "No matching results found." });
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     console.error("Error in chat route:", error);
     res.status(500).json({ error: "An error occurred while fetching users." });
