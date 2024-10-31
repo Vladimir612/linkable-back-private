@@ -3,16 +3,15 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../schemas/UserSchema.js";
 import dotenv from "dotenv";
-import {
-  authorize,
-  checkOwnershipOrParticipation,
-} from "../middlewares/authorize.js";
+import { authorize } from "../middlewares/authorize.js";
 import {
   cloudinaryStorage,
   deleteImageFromCloudinary,
 } from "../config/CloudinaryConfig.js";
 import multer from "multer";
 import { extractPublicId } from "../helpers/index.js";
+import OpenAI from "openai";
+import Comment from "../schemas/CommentSchema.js";
 
 dotenv.config();
 
@@ -22,53 +21,72 @@ const uploadProfileImg = multer({
   storage: cloudinaryStorage("profile_images"),
 });
 
-router.post(
-  "/register",
-  uploadProfileImg.single("profileImage"),
-  async (req, res) => {
-    try {
-      const { email, fullname, password } = req.body;
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-      const existingUser = await User.findOne({ email });
-      if (existingUser) return res.status(404).send("User already exists");
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const newUser = new User({
-        email,
-        password: hashedPassword,
-        fullname,
-        role: "User",
-      });
-
-      if (req.file) {
-        newUser.profileImage = req.file.path;
-      }
-
-      await newUser.save();
-
-      const token = jwt.sign(
-        { id: newUser._id, email: newUser.email },
-        process.env.JWT_SECRET,
+// Function to generate GPT tags
+const generateGptTags = async (content) => {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
         {
-          expiresIn: "1h",
-        }
-      );
+          role: "system",
+          content:
+            "You are a tag extractor. You evaluate a large text and extraxt a group of minimum word count tags. In that group there should be 4 to 10 tags depending on a content size you get. You also return response in next format example: tag1, tag2, tag with four words, tag4. If you can't extract tags, return empty string.",
+        },
+        {
+          role: "user",
+          content: "Extract tags from this text: " + content,
+        },
+      ],
+    });
 
-      res
-        .status(201)
-        .json({ message: "User registered successfully", token: token });
-    } catch (error) {
-      if (req.file && req.file.path) {
-        let imgPublicId = extractPublicId(req.file.path);
-        await deleteImageFromCloudinary(
-          `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${imgPublicId}`
-        );
-      }
-      res.status(500).json({ message: "Error registering user", error });
-    }
+    const gptTags = completion.choices[0].message.content
+      .split(",")
+      .map((tag) => tag.trim());
+    return gptTags;
+  } catch (error) {
+    console.error("Failed to generate GPT tags:", error);
+    return [];
   }
-);
+};
+
+router.post("/register", async (req, res) => {
+  try {
+    const { email, fullname, password } = req.body;
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(404).send("User already exists");
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      email,
+      password: hashedPassword,
+      fullname,
+      role: "User",
+    });
+
+    await newUser.save();
+
+    const token = jwt.sign(
+      { id: newUser._id, email: newUser.email },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1h",
+      }
+    );
+
+    res
+      .status(201)
+      .json({ message: "User registered successfully", token: token });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error registering user", error });
+  }
+});
 
 router.post("/login", async (req, res) => {
   try {
@@ -94,83 +112,6 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.post(
-  "/onboarding",
-  authorize(["User"]),
-  // uploadProfileImg.single("profileImage"),
-  async (req, res) => {
-    try {
-      // Get user ID from the token
-      const userId = req.user ? req.user.id : null;
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      // Find the user
-      const user = await User.findById(userId);
-      if (!user) return res.status(404).send("User not found");
-
-      // Extract data from the request body
-      const {
-        gender,
-        age,
-        dissabilityType,
-        experiences,
-        challenges,
-        willingToHelp,
-      } = req.body;
-
-      // Update user fields
-      if (gender) user.gender = gender;
-      if (age) user.age = age;
-      if (dissabilityType) user.dissabilityType = dissabilityType;
-      if (experiences) user.experiences = experiences; // Ensure this matches the schema
-      if (challenges) user.challenges = challenges;
-      if (willingToHelp !== undefined)
-        user.willingToHelp = willingToHelp === "true";
-
-      // Handle profileImage
-      if (req.file) {
-        // Delete old image if it exists
-        if (user.profileImage) {
-          // const oldImagePublicId = extractPublicId(user.profileImage);
-          // await deleteImageFromCloudinary(
-          //   `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${oldImagePublicId}`
-          // );
-        }
-        user.profileImage = req.file.path;
-      }
-
-      // Save the updated user
-      await user.save();
-
-      res.json({ message: "Onboarding data saved successfully" });
-    } catch (error) {
-      console.error("Error in /user/onboarding:", error);
-      res.status(500).json({ message: "Error saving onboarding data", error });
-    }
-  }
-);
-
-router.get("/", async (req, res) => {
-  try {
-    const users = await User.find();
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching users", error });
-  }
-});
-
-router.get("/:id", async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).send("User not found");
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching user", error });
-  }
-});
-
 router.patch(
   "/:id",
   authorize(["User", "Admin"]),
@@ -182,27 +123,17 @@ router.patch(
       const user = await User.findById(req.params.id);
       if (!user) return res.status(404).send("User not found");
 
-      if (req.user.role !== "Admin") {
-        if (!checkOwnershipOrParticipation(req, user)) {
-          if (req.file && req.file.path) {
-            cloudinaryImageId = extractPublicId(req.file.path);
-            await deleteImageFromCloudinary(
-              `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${cloudinaryImageId}`
-            );
-          }
-          return res.status(403).json({ message: "Unauthorized" });
-        }
-      }
-
       const {
         email,
-        password,
         fullname,
         age,
         dissabilityType,
         gender,
-        experiences,
-        role,
+        phoneNumber,
+        availabilityStatus,
+        tags,
+        experience,
+        willingToHelp,
       } = req.body;
 
       if (email && email !== user.email) {
@@ -219,24 +150,44 @@ router.patch(
         user.email = email;
       }
 
-      if (experiences && experiences.length > 0) {
-        const tagsFromChatGPT = await sendToChatGPT(experiences);
-        await addTagsToUser(user, tagsFromChatGPT);
+      if (fullname && fullname !== "") {
+        user.fullname = fullname;
       }
 
-      if (password) {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        user.password = hashedPassword;
+      if (age && age !== "") {
+        user.age = age;
       }
-      if (fullname) user.fullname = fullname;
-      if (age) user.age = age;
-      if (dissabilityType) user.dissabilityType = dissabilityType;
-      if (gender) user.gender = gender;
-      if (experiences) user.experiences = experiences;
+      if (dissabilityType && dissabilityType !== "") {
+        user.dissabilityType = dissabilityType;
+      }
+      if (gender && gender !== "") {
+        user.gender = gender;
+      }
+      if (experience && experience.length > 0) {
+        user.experience = experience;
+        const chatGptTags = await generateGptTags(experience);
 
-      if (req.user.role === "Admin" && role) {
-        user.role = role;
+        if (chatGptTags.length === 0) {
+          return res.status(400).json({ message: "Content not good enough." });
+        }
+
+        user.chatGptTags = chatGptTags;
       }
+      if (phoneNumber && phoneNumber !== "") {
+        user.phoneNumber = phoneNumber;
+      }
+
+      if (availabilityStatus && availabilityStatus !== "") {
+        user.availabilityStatus = availabilityStatus;
+      }
+      if (typeof willingToHelp !== "undefined") {
+        user.willingToHelp = willingToHelp;
+        user.availabilityStatus = willingToHelp
+          ? "MESSAGE_AVAILABLE"
+          : "UNAVAILABLE";
+      }
+
+      if (Array.isArray(tags) && tags.length > 0) user.tags = tags;
 
       if (req.file) {
         if (user.profileImage) {
@@ -258,34 +209,57 @@ router.patch(
         );
       }
       res.status(500).json({ message: "Error updating user", error });
+      console.log(error);
     }
   }
 );
 
-router.delete("/:id", authorize(["User", "Admin"]), async (req, res) => {
+router.get("/", authorize(["User", "Admin"]), async (_, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).send("User not found");
+    const users = await User.find()
+      .select(
+        "fullname profileImage dissabilityType gender availabilityStatus tags"
+      )
+      .populate("tags", "tagText");
 
-    // if (req.user.role !== "Admin") {
-    //   if (!checkOwnershipOrParticipation(req, user)) {
-    //     return res.status(403).json({ message: "Unauthorized" });
-    //   }
-    // }
-
-    if (user.profileImage) {
-      const imgPublicId = extractPublicId(user.profileImage);
-
-      await deleteImageFromCloudinary(
-        `${process.env.CLOUDINARY_FOLDER_NAME}/profile_images/${imgPublicId}`
-      );
-    }
-
-    await User.findByIdAndDelete(req.params.id);
-    res.status(204).send();
+    res.json(users);
   } catch (error) {
-    res.status(500).json({ message: "Error deleting user", error });
+    res.status(500).json({ message: "Error fetching users", error });
   }
 });
+
+router.get("/:id", authorize(["User", "Admin"]), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select("-chats -chatGPTChats -chatGptTags -password") // Izostavi polja koja ne želiš da vratiš
+      .populate({
+        path: "posts", // Popuni podatke o postovima
+      })
+      .populate("tags", "tagText"); // Popuni tagove korisnika
+
+    if (!user) return res.status(404).send("User not found");
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching user", error });
+  }
+});
+
+router.get(
+  "/:userId/comments",
+  authorize(["User", "Admin"]),
+  async (req, res) => {
+    try {
+      // Pronalazimo sve komentare koje je korisnik ostavio
+      const comments = await Comment.find({
+        user: req.params.userId, // Filtriramo komentare po korisniku
+      }).select("createdAt content"); // Vraćamo samo 'createdAt' i 'content' polja
+
+      res.json(comments); // Vraćamo sve korisnikove komentare
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching user comments", error });
+    }
+  }
+);
 
 export default router;

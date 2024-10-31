@@ -18,12 +18,7 @@ const connectToDatabase = async () => {
 
     const mongoUrl = `mongodb+srv://${user}:${password}@cluster0.1wsr6.mongodb.net/${databaseName}?retryWrites=true&w=majority&appName=Cluster0`;
 
-    cached.promise = mongoose
-      .connect(mongoUrl, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      })
-      .then((mongoose) => mongoose);
+    cached.promise = mongoose.connect(mongoUrl).then((mongoose) => mongoose);
 
     cached.conn = await cached.promise;
   }

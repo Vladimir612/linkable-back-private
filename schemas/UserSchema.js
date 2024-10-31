@@ -1,50 +1,5 @@
 import mongoose from "mongoose";
 
-const availabilitySchema = new mongoose.Schema({
-  availabilityStatus: {
-    type: String,
-    enum: ["Up for a call", "Available for messages", "Unavailable"],
-  },
-  availabilitySchedule: {
-    weekdays: {
-      type: [
-        {
-          day: {
-            type: String,
-            enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-          },
-          time: {
-            start: {
-              type: String, // e.g., "09:00"
-            },
-            end: {
-              type: String, // e.g., "17:00"
-            },
-          },
-        },
-      ],
-    },
-    weekend: {
-      type: [
-        {
-          day: {
-            type: String,
-            enum: ["Saturday", "Sunday"],
-          },
-          time: {
-            start: {
-              type: String, // e.g., "10:00"
-            },
-            end: {
-              type: String, // e.g., "14:00"
-            },
-          },
-        },
-      ],
-    },
-  },
-});
-
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -62,6 +17,10 @@ const userSchema = new mongoose.Schema({
   age: {
     type: Number,
   },
+  phoneNumber: {
+    type: String,
+    default: null,
+  },
   role: {
     type: String,
     enum: ["Admin", "User", "Moderator"],
@@ -69,6 +28,7 @@ const userSchema = new mongoose.Schema({
   },
   profileImage: {
     type: String,
+    default: null,
   },
   dissabilityType: {
     type: String,
@@ -81,21 +41,23 @@ const userSchema = new mongoose.Schema({
       "deaf",
       "blind",
       "mute",
+      "cantsay",
     ],
+    default: "cantsay",
   },
   gender: {
     type: String,
     enum: ["Male", "Female", "Other"],
+    default: "Other",
   },
-  experiences: [
+  availabilityStatus: {
+    type: String,
+    enum: ["AVAILABLE", "CALL_AVAILABLE", "MESSAGE_AVAILABLE", "UNAVAILABLE"],
+    default: "UNAVAILABLE",
+  },
+  chatGptTags: [
     {
-      question: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Question",
-      },
-      answer: {
-        type: String,
-      },
+      type: String,
     },
   ],
   tags: [
@@ -104,6 +66,14 @@ const userSchema = new mongoose.Schema({
       ref: "Tag",
     },
   ],
+  experience: {
+    type: String,
+    default: "",
+  },
+  willingToHelp: {
+    type: Boolean,
+    default: false,
+  },
   posts: [
     {
       type: mongoose.Schema.Types.ObjectId,
@@ -120,19 +90,6 @@ const userSchema = new mongoose.Schema({
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ChatGPTChat",
-    },
-  ],
-  availability: [
-    {
-      type: availabilitySchema,
-    },
-  ],
-  willingToHelp: {
-    type: Boolean,
-  },
-  challenges: [
-    {
-      type: String,
     },
   ],
 });
