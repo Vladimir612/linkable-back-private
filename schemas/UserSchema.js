@@ -87,17 +87,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ["Male", "Female", "Other"],
   },
-  experiences: [
-    {
-      question: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Question",
-      },
-      answer: {
-        type: String,
-      },
-    },
-  ],
   tags: [
     {
       type: mongoose.Schema.Types.ObjectId,
@@ -130,11 +119,9 @@ const userSchema = new mongoose.Schema({
   willingToHelp: {
     type: Boolean,
   },
-  challenges: [
-    {
-      type: String,
-    },
-  ],
+  experience: {
+    type: String,
+  },
 });
 
 const User = mongoose.model("User", userSchema);
