@@ -13,6 +13,7 @@ import { extractPublicId } from "../helpers/index.js";
 import OpenAI from "openai";
 import Comment from "../schemas/CommentSchema.js";
 import ChatGPTChat from "../schemas/ChatGptSchema.js";
+import Chat from "../schemas/ChatSchema.js";
 
 dotenv.config();
 
@@ -278,6 +279,89 @@ router.get(
       res.json(chats);
     } catch (error) {
       res.status(500).json({ message: "Error fetching user chats", error });
+    }
+  }
+);
+
+router.get("/:userId/chats", authorize(["User", "Admin"]), async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    const chats = await Chat.find({
+      participants: userId,
+    })
+      .populate({
+        path: "participants",
+        select: "fullname profileImage",
+      })
+      .populate({
+        path: "messages",
+        options: { sort: { createdAt: -1 }, limit: 1 },
+        populate: {
+          path: "sender",
+          select: "fullname profileImage",
+        },
+      })
+      .select("participants messages");
+
+    const chatList = chats.map((chat) => {
+      const otherParticipant = chat.participants.find(
+        (participant) => participant._id.toString() !== userId
+      );
+
+      const lastMessage = chat.messages[0];
+
+      return {
+        chatId: chat._id,
+        participant: otherParticipant,
+        lastMessage: lastMessage
+          ? {
+              content: lastMessage.content,
+              sender: {
+                fullname: lastMessage.sender.fullname,
+                profileImage: lastMessage.sender.profileImage,
+              },
+              timestamp: lastMessage.timestamp,
+            }
+          : null,
+      };
+    });
+
+    res.json(chatList);
+  } catch (error) {
+    console.error("Error fetching user chats", error);
+    res.status(500).json({ message: "Error fetching user chats", error });
+  }
+});
+
+router.get(
+  "/:userId/chats/:chatId",
+  authorize(["User", "Admin"]),
+  async (req, res) => {
+    try {
+      const { userId, chatId } = req.params;
+
+      const chat = await Chat.findOne({
+        _id: chatId,
+        participants: userId,
+      })
+        .populate({
+          path: "messages",
+          populate: {
+            path: "sender",
+            select: "fullname profileImage",
+          },
+        })
+        .select("messages");
+
+      if (!chat) {
+        return res.status(404).json({ message: "Chat not found" });
+      }
+
+      res.json(chat.messages);
+    } catch (error) {
+      console.error("Error fetching chat messages", error);
+      res.status(500).json({ message: "Error fetching chat messages", error });
     }
   }
 );

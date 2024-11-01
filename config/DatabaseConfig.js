@@ -16,7 +16,7 @@ const connectToDatabase = async () => {
     const password = process.env.DB_USER_PASSWORD;
     const databaseName = process.env.DB_NAME;
 
-    const mongoUrl = `mongodb+srv://${user}:${password}@cluster0.1wsr6.mongodb.net/${databaseName}?retryWrites=true&w=majority&appName=Cluster0`;
+    const mongoUrl = `mongodb+srv://${user}:${password}@cluster0.adk6n.mongodb.net/${databaseName}?retryWrites=true&w=majority&appName=Cluster0`;
 
     cached.promise = mongoose.connect(mongoUrl).then((mongoose) => mongoose);
 
@@ -26,4 +26,17 @@ const connectToDatabase = async () => {
   return cached.conn;
 };
 
-export default connectToDatabase;
+const disconnectFromDatabase = async () => {
+  if (cached.conn) {
+    try {
+      await mongoose.disconnect();
+      cached.conn = null;
+      cached.promise = null;
+      console.log("Disconnected from MongoDB");
+    } catch (error) {
+      console.error("Error disconnecting from MongoDB", error);
+    }
+  }
+};
+
+export { connectToDatabase, disconnectFromDatabase };

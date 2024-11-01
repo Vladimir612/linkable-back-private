@@ -56,7 +56,7 @@ router.post(
   uploadPostImg.single("postImage"),
   async (req, res) => {
     try {
-      const { title, content, tags } = req.body;
+      const { title, content, tags, isAd } = req.body;
       if (!title || !content) {
         res.status(400).json({ message: "Please provide required fields" });
       }
@@ -80,11 +80,12 @@ router.post(
         image,
         tags,
         chatGptTags,
+        isAd,
       });
 
       await newPost.save();
 
-      const user = await User.findByIdAndUpdate(author, {
+      await User.findByIdAndUpdate(author, {
         $push: { posts: newPost._id },
       });
 
@@ -383,13 +384,11 @@ router.get(
         return res.status(404).json({ message: "Comment not found" });
       }
 
-      // Populiraj user polje za svaki subkomentar
       const populatedSubcomments = await Comment.populate(comment.subcomments, {
         path: "user",
         select: "profileImage", // Populi samo profileImage korisnika
       });
 
-      // Vraćanje popunjenih subkomentara
       res.status(200).json(populatedSubcomments);
     } catch (error) {
       console.error("Error fetching subcomments:", error);

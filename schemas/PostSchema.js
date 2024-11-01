@@ -59,6 +59,10 @@ const postSchema = new mongoose.Schema(
         ref: "Comment",
       },
     ],
+    isAd: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
